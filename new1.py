@@ -71,7 +71,7 @@ previous_y = 0
 # 鼠标移动灵敏度
 sensitivity = 10
 # 角度变化阈值
-threshold = 3  # 角度
+threshold = 6  # 角度
 
 def move_mouse_based_on_tilt():
     global previous_x, previous_y
