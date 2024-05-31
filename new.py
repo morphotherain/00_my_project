@@ -1,21 +1,25 @@
 import RPi.GPIO as GPIO
 import time
 import smbus
+import math
 import cv2
 import numpy as np
 from threading import Thread
-import pyautogui
-import subprocess
+from pynput.mouse import Button, Controller as MouseController
+from pynput.keyboard import Controller as KeyboardController, Key
+
+
+
+mouse = MouseController()
+keyboard = KeyboardController()
+
 
 # GPIO引脚定义
-BUZZER_PIN = 11
-GREEN_LED_PIN = 12
-RED_LED_PIN = 13
-JOYSTICK_X_PIN = 0
-JOYSTICK_Y_PIN = 1
-JOYSTICK_BTN_PIN = 2
-BUTTON_LEFT_PIN = 14
-BUTTON_RIGHT_PIN = 15
+BUZZER_PIN = 12
+GREEN_LED_PIN = 23
+RED_LED_PIN = 26
+BUTTON_LEFT_PIN = 22
+BUTTON_RIGHT_PIN = 11
 TRIG_PIN = 16
 ECHO_PIN = 18
 
@@ -48,14 +52,30 @@ GPIO.setup(ECHO_PIN, GPIO.IN)
 def init_mpu6050():
     bus.write_byte_data(MPU6050_ADDR, POWER_MGMT_1, 0)
 
+def dist(a, b):
+    return math.sqrt((a * a) + (b * b))
+
+def get_y_rotation(x, y, z):
+    radians = math.atan2(x, dist(y, z))
+    return -math.degrees(radians)
+
+def get_x_rotation(x, y, z):
+    radians = math.atan2(y, dist(x, z))
+    return math.degrees(radians)
+
+
 def read_mpu6050():
-    gyro_xout = read_word_2c(0x43)
-    gyro_yout = read_word_2c(0x45)
-    gyro_zout = read_word_2c(0x47)
     accel_xout = read_word_2c(0x3b)
     accel_yout = read_word_2c(0x3d)
     accel_zout = read_word_2c(0x3f)
-    return (gyro_xout, gyro_yout, gyro_zout, accel_xout, accel_yout, accel_zout)
+    accel_xout_scaled = accel_xout / 16384.0
+    accel_yout_scaled = accel_yout / 16384.0
+    accel_zout_scaled = accel_zout / 16384.0
+
+    x = get_x_rotation(accel_xout_scaled, accel_yout_scaled, accel_zout_scaled)
+    y = get_y_rotation(accel_xout_scaled, accel_yout_scaled, accel_zout_scaled)
+    
+    return (x,y)
 
 def read_word_2c(adr):
     val = (bus.read_byte_data(MPU6050_ADDR, adr) << 8) + bus.read_byte_data(MPU6050_ADDR, adr + 1)
@@ -68,11 +88,23 @@ def read_word_2c(adr):
 def init_joystick():
     bus.write_byte_data(0x48, 0x40, 0x03)
 
-def read_joystick():
-    x = bus.read_byte_data(0x48, JOYSTICK_X_PIN)
-    y = bus.read_byte_data(0x48, JOYSTICK_Y_PIN)
-    btn = GPIO.input(JOYSTICK_BTN_PIN)
-    return (x, y, btn)
+address = 0x48
+
+def read(chn):
+    try:
+        if chn == 0:
+            bus.write_byte(address,0x40)
+        if chn == 1:
+            bus.write_byte(address,0x41)
+        if chn == 2:
+            bus.write_byte(address,0x42)
+        if chn == 3:
+            bus.write_byte(address,0x43)
+        bus.read_byte(address)
+    except Exception as e:
+        print ("Address: %s" % address)
+        print (e)
+    return bus.read_byte(address)
 
 # 蜂鸣器函数
 def buzzer_on():
@@ -145,66 +177,56 @@ def distance_measurement():
     distance = (elapsed_time * 34300) / 2
     return distance
 
-# 游戏控制函数
+# 初始化pynput控制器
+mouse = MouseController()
+keyboard = KeyboardController()
+
+def read_joystick_and_control():
+    state = ['home', 'up', 'down', 'left', 'right', 'pressed']
+    i = 0
+    if read(1) <= 30:
+        i = 1
+        keyboard.press('w')
+        keyboard.release('s')
+    elif read(1) >= 225:
+        i = 2
+        keyboard.press('s')
+        keyboard.release('w')
+    elif read(0) >= 225:
+        i = 3
+        keyboard.press('a')
+        keyboard.release('d')
+    elif read(0) <= 30:
+        i = 4
+        keyboard.press('d')
+        keyboard.release('a')
+    elif read(2) == 0 and read(1) == 128 and read(0) > 100 and read(0) < 130:
+        i = 5
+        keyboard.press(Key.space)
+        keyboard.release(Key.space)
+    elif read(0) - 125 < 15 and read(0) - 125 > -15 and read(1) - 125 < 15 and read(1) - 125 > -15 and read(2) == 255:
+        i = 0
+        keyboard.release('w')
+        keyboard.release('s')
+        keyboard.release('a')
+        keyboard.release('d')
+
+    # 按键控制鼠标点击
+    if read_button_left():
+        print(f"leftclick")
+        mouse.click(Button.left, 1)
+    if read_button_right():
+        print(f"rightclick")
+        mouse.click(Button.right, 1)
+    
+    return state[i]
+
 def game_control():
     while True:
-        x, y, btn = read_joystick()
-        # 摇杆控制WASD和空格
-        if x < 100:
-            pyautogui.keyDown('a')
-        elif x > 150:
-            pyautogui.keyDown('d')
-        else:
-            pyautogui.keyUp('a')
-            pyautogui.keyUp('d')
-        if y < 100:
-            pyautogui.keyDown('w')
-        elif y > 150:
-            pyautogui.keyDown('s')
-        else:
-            pyautogui.keyUp('w')
-            pyautogui.keyUp('s')
-        if btn == 0:
-            pyautogui.press
-            pyautogui.press('space')
-
-        # 按键控制鼠标点击
-        if read_button_left():
-            pyautogui.click(button='left')
-        if read_button_right():
-            pyautogui.click(button='right')
-        
+        state = read_joystick_and_control()
+        ## print(f"Joystick state: {state}")
         time.sleep(0.1)
 
-# 游戏控制函数
-def game_control():
-    while True:
-        x, y, btn = read_joystick()
-        # 摇杆控制WASD和空格
-        if x < 100:
-            print('a')
-        elif x > 150:
-            print('d')
-        else:
-            print('a')
-            print('d')
-        if y < 100:
-            print('w')
-        elif y > 150:
-            print('s')
-        else:
-            print('w')
-            print('s')
-        if btn == 0:
-            print('space')
-
-        # 按键控制鼠标点击
-        if read_button_left():
-            print(button='left')
-        if read_button_right():
-            print(button='right')
-        
-        time.sleep(0.1)
 
 def main():
     init_mpu6050()
@@ -220,15 +242,14 @@ def main():
     # fatigue_thread.start()
 
     # 启动游戏控制线程
-    # game_control_thread = Thread(target=game_control)
-    # game_control_thread.start()
+    game_control_thread = Thread(target=game_control)
+    game_control_thread.start()
 
     try:
         while True:
             # 读取并打印MPU6050数据
-            gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z = read_mpu6050()
-            print(f"Gyro: {gyro_x}, {gyro_y}, {gyro_z}")
-            print(f"Accel: {accel_x}, {accel_y}, {accel_z}")
+            r_x, r_y = read_mpu6050()
+            print(f"x, y: {r_x}, {r_y}")
 
             # 距离检测并报警
             ##distance = distance_measurement()
@@ -241,7 +262,7 @@ def main():
             ##    buzzer_off()
             ##    led_red_off()
 
-            time.sleep(1)
+            time.sleep(3)
     except KeyboardInterrupt:
         pass
     finally:
