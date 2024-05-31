@@ -241,9 +241,6 @@ def distance_measurement():
     distance = (elapsed_time * 34300) / 2
     return distance
 
-# 初始化pynput控制器
-mouse = MouseController()
-keyboard = KeyboardController()
 
 def read_joystick_and_control():
     state = ['home', 'up', 'down', 'left', 'right', 'pressed']
