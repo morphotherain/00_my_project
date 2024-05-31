@@ -109,9 +109,9 @@ def read_button_right():
     return GPIO.input(BUTTON_RIGHT_PIN) == GPIO.LOW
 
 # 摄像头函数
-face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
-eye_cascade = cv2.CascadeClassifier(EYE_CASCADE_PATH)
-cap = cv2.VideoCapture(0)
+#face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
+#eye_cascade = cv2.CascadeClassifier(EYE_CASCADE_PATH)
+#cap = cv2.VideoCapture(0)
 
 def fatigue_detection():
     while True:
@@ -176,22 +176,52 @@ def game_control():
         
         time.sleep(0.1)
 
+# 游戏控制函数
+def game_control():
+    while True:
+        x, y, btn = read_joystick()
+        # 摇杆控制WASD和空格
+        if x < 100:
+            print('a')
+        elif x > 150:
+            print('d')
+        else:
+            print('a')
+            print('d')
+        if y < 100:
+            print('w')
+        elif y > 150:
+            print('s')
+        else:
+            print('w')
+            print('s')
+        if btn == 0:
+            print('space')
+
+        # 按键控制鼠标点击
+        if read_button_left():
+            print(button='left')
+        if read_button_right():
+            print(button='right')
+        
+        time.sleep(0.1)
+
 def main():
     init_mpu6050()
     init_joystick()
-    led_green_on()
+    # led_green_on()
 
     # 启动游戏
-    game_path = '/path/to/your/game/executable'  # 替换为实际的游戏路径
-    subprocess.Popen(game_path, shell=True)
+    # game_path = '/path/to/your/game/executable'  # 替换为实际的游戏路径
+    # subprocess.Popen(game_path, shell=True)
 
     # 启动疲劳检测线程
-    fatigue_thread = Thread(target=fatigue_detection)
-    fatigue_thread.start()
+    # fatigue_thread = Thread(target=fatigue_detection)
+    # fatigue_thread.start()
 
     # 启动游戏控制线程
-    game_control_thread = Thread(target=game_control)
-    game_control_thread.start()
+    # game_control_thread = Thread(target=game_control)
+    # game_control_thread.start()
 
     try:
         while True:
@@ -201,23 +231,23 @@ def main():
             print(f"Accel: {accel_x}, {accel_y}, {accel_z}")
 
             # 距离检测并报警
-            distance = distance_measurement()
-            print(f"Distance: {distance} cm")
-            if distance < 50:  # 距离阈值可以根据需要调整
-                print("距离过近！")
-                buzzer_on()
-                led_red_on()
-            else:
-                buzzer_off()
-                led_red_off()
+            ##distance = distance_measurement()
+            ##print(f"Distance: {distance} cm")
+            ## if distance < 50:  # 距离阈值可以根据需要调整
+            ##    print("距离过近！")
+            ##    buzzer_on()
+            ##    led_red_on()
+            ##else:
+            ##    buzzer_off()
+            ##    led_red_off()
 
             time.sleep(1)
     except KeyboardInterrupt:
         pass
     finally:
         GPIO.cleanup()
-        cap.release()
-        cv2.destroyAllWindows()
+        # cap.release()
+        # cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
