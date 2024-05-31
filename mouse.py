@@ -71,7 +71,7 @@ def move_mouse_based_on_tilt():
         # 检查角度变化是否超过误差限
         if abs(delta_x) > threshold or abs(delta_y) > threshold:
             # 计算鼠标应移动的距离
-            move_x = int(delta_x * sensitivity)
+            move_x = -int(delta_x * sensitivity)
             move_y = int(delta_y * sensitivity)
             # 移动鼠标
             mouse.move(move_x, move_y)
